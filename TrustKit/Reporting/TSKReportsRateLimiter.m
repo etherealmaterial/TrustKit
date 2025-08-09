@@ -88,4 +88,3 @@ static const NSTimeInterval kIntervalBetweenReportsCacheReset = 3600 * 24;
 }
 
 @end
-

@@ -39,7 +39,7 @@ The policy can be configured within the App's `Info.plist`:
 
 Alternatively, the pinning policy can be set programmatically:
 
-```objc
+\`\`\`objc
     NSDictionary *trustKitConfig =
   @{
     kTSKSwizzleNetworkDelegates: @NO,
@@ -62,11 +62,11 @@ Alternatively, the pinning policy can be set programmatically:
             }};
     
     [TrustKit initSharedInstanceWithConfiguration:trustKitConfig];
-```
+\`\`\`
 
 The policy can also be set programmatically in Swift Apps:
  
-```swift
+\`\`\`swift
         let trustKitConfig = [
             kTSKSwizzleNetworkDelegates: false,
             kTSKPinnedDomains: [
@@ -78,14 +78,14 @@ The policy can also be set programmatically in Swift Apps:
                     ],]]] as [String : Any]
         
         TrustKit.initSharedInstance(withConfiguration:trustKitConfig)
-```
+\`\`\`
 
 After TrustKit has been initialized, a 
 [`TSKPinningValidator` instance](https://datatheorem.github.io/TrustKit/documentation/Classes/TSKPinningValidator.html) 
 can be retrieved from the TrustKit singleton, and can be used to perform SSL pinning validation 
 in the App's network delegates. For example in an NSURLSessionDelegate:
 
-```objc
+\`\`\`objc
 - (void)URLSession:(NSURLSession *)session 
               task:(NSURLSessionTask *)task 
 didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge 
@@ -100,7 +100,7 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
         completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
     }
 }
-```
+\`\`\`
 
 For more information, see the [Getting Started][getting-started] guide.
 

@@ -19,4 +19,3 @@
 
 FOUNDATION_EXPORT double TrustKitVersionNumber;
 FOUNDATION_EXPORT const unsigned char TrustKitVersionString[];
-

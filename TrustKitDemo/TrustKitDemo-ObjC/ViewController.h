@@ -19,4 +19,3 @@
 @property (weak, nonatomic) IBOutlet UIWebView *destinationWebView;
 
 @end
-

@@ -44,4 +44,3 @@ NSArray<NSString *> *convertPinsToHpkpPins(NSSet<NSData *> *knownPins)
     }
     return formattedPins;
 }
-

@@ -27,5 +27,3 @@ NSString *identifier_for_vendor(void)
     }
     return vendorId;
 }
-
-

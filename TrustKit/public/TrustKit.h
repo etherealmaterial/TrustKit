@@ -49,7 +49,7 @@ NS_ASSUME_NONNULL_BEGIN
  The following table shows the keys and the types of the corresponding values, and uses
  indentation to indicate structure:
  
- ```
+ \`\`\`
  | Key                                          | Type       |
  |----------------------------------------------|------------|
  | TSKSwizzleNetworkDelegates                   | Boolean    |
@@ -62,13 +62,13 @@ NS_ASSUME_NONNULL_BEGIN
  | ____ TSKEnforcePinning                       | Boolean    |
  | ____ TSKReportUris                           | Array      |
  | ____ TSKDisableDefaultReportUri              | Boolean    |
- ```
+ \`\`\`
  
  When setting the pinning policy programmatically, it has to be supplied to the
  `initSharedInstanceWithConfiguration:` method as a dictionary in order to initialize 
  TrustKit. For example:
  
- ```
+ \`\`\`
     NSDictionary *trustKitConfig =
   @{
     kTSKPinnedDomains : @{
@@ -92,11 +92,11 @@ NS_ASSUME_NONNULL_BEGIN
     
     [TrustKit initSharedInstanceWithConfiguration:trustKitConfig];
     trustKit = [TrustKit sharedInstance];
- ```
+ \`\`\`
  
  Similarly, the TrustKit singleton can be initialized in Swift:
  
- ```
+ \`\`\`
         let trustKitConfig = [
             kTSKSwizzleNetworkDelegates: false,
             kTSKPinnedDomains: [
@@ -108,7 +108,7 @@ NS_ASSUME_NONNULL_BEGIN
                     ],]]] as [String : Any]
         
         TrustKit.initSharedInstance(withConfiguration:trustKitConfig)
- ```
+ \`\`\`
  
  After initialization, the `TrustKit` instance's `pinningValidator` should be used to implement
  pinning validation within the App's network authentication handlers.

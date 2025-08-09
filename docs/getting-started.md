@@ -86,7 +86,7 @@ pinning policy.
 A pinning policy is a dictionary of domain names and pinning configuration keys.
 At a minimum, the configuration should specify a list of SSL pins. For example:
 
-```objc
+\`\`\`objc
 #import <TrustKit/TrustKit.h>
 
 NSDictionary *trustKitConfig =
@@ -121,7 +121,7 @@ NSDictionary *trustKitConfig =
                           ]
 }}};
 [TrustKit initSharedInstanceWithConfiguration:trustKitConfig];
-```
+\`\`\`
 
 The list of all the configuration keys is available in the
 [documentation](https://datatheorem.github.io/TrustKit/documentation/Classes/TrustKit.html).
@@ -133,7 +133,7 @@ After TrustKit has been initialized, a
 can be retrieved from the TrustKit singleton, and can be used to perform SSL pinning validation 
 in the App's network delegates. For example in an NSURLSessionDelegate:
 
-```objc
+\`\`\`objc
 - (void)URLSession:(NSURLSession *)session 
               task:(NSURLSessionTask *)task 
 didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge 
@@ -148,7 +148,7 @@ didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
         completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, nil);
     }
 }
-```
+\`\`\`
 
 Some additional consideration in regards to the right pinning policy to deploy follow. 
 

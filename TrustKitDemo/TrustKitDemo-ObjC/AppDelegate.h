@@ -18,4 +18,3 @@
 @property (nonatomic, readonly) NSDictionary *trustKitConfig;
 
 @end
-
