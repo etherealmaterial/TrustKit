@@ -1,85 +1,72 @@
 "use client"
 
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js"
-import { useCallback, useMemo, useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
+import { useMemo, useState } from "react"
+import { Button } from "@/components/ui/button"
 
-const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ""
+type Props = { amountUsd: number }
 
-export default function PayPalSection() {
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-
+export default function PayPalSection({ amountUsd }: Props) {
+  const [status, setStatus] = useState<string | null>(null)
+  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ""
   const options = useMemo(
     () => ({
       "client-id": clientId,
-      components: "buttons",
       currency: "USD",
-      intent: "capture",
-      commit: true,
-      // Prevent PayPal from auto-guessing based on page locale
-      "disable-funding": "credit,card",
+      intent: "CAPTURE",
+      components: "buttons",
+      "enable-funding": "venmo",
     }),
-    [],
+    [clientId],
   )
 
-  const createOrder = useCallback(async () => {
-    setError(null)
-    setLoading(true)
-    try {
-      const res = await fetch("/api/paypal/create-order", { method: "POST" })
-      const json = await res.json()
-      if (!res.ok || !json?.ok || !json?.id) {
-        throw new Error(json?.error || "Failed to create PayPal order")
-      }
-      return json.id as string
-    } catch (err: any) {
-      setError(err?.message ?? "Create order failed")
-      throw err
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  const onApprove = useCallback(async (data: any) => {
-    setError(null)
-    setLoading(true)
-    try {
-      const res = await fetch("/api/paypal/capture-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderID: data.orderID }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json?.ok) {
-        throw new Error(json?.error || "Capture failed")
-      }
-      window.location.href = `/buy-eth/success?paypal_order=${encodeURIComponent(data.orderID)}`
-    } catch (err: any) {
-      setError(err?.message ?? "Capture failed")
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
   if (!clientId) {
-    return <p className="text-sm text-destructive">Missing NEXT_PUBLIC_PAYPAL_CLIENT_ID</p>
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-red-600">Missing NEXT_PUBLIC_PAYPAL_CLIENT_ID</p>
+        <Button asChild>
+          <a href="https://developer.paypal.com/dashboard/" target="_blank" rel="noreferrer">
+            Get PayPal Client ID
+          </a>
+        </Button>
+      </div>
+    )
   }
 
   return (
-    <Card>
-      <CardContent className="p-4 space-y-3">
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        {loading ? <p className="text-sm text-muted-foreground">Processing...</p> : null}
-        <PayPalScriptProvider options={options}>
-          <PayPalButtons
-            fundingSource={undefined}
-            style={{ layout: "vertical", shape: "rect", label: "paypal" }}
-            createOrder={createOrder}
-            onApprove={onApprove}
-          />
-        </PayPalScriptProvider>
-      </CardContent>
-    </Card>
+    <div className="space-y-3">
+      <PayPalScriptProvider options={options}>
+        <PayPalButtons
+          style={{ layout: "vertical", color: "gold", shape: "rect", label: "paypal" }}
+          createOrder={async () => {
+            setStatus("Creating PayPal order…")
+            const res = await fetch("/api/paypal/create-order", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ amount: Math.max(1, Math.round(amountUsd * 100) / 100) }),
+            })
+            if (!res.ok) throw new Error(await res.text())
+            const data = (await res.json()) as { id: string }
+            return data.id
+          }}
+          onApprove={async (data) => {
+            setStatus("Capturing PayPal payment…")
+            const res = await fetch("/api/paypal/capture-order", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ orderID: data.orderID }),
+            })
+            if (!res.ok) throw new Error(await res.text())
+            const capture = await res.json()
+            setStatus(`Payment complete. Capture ID: ${capture?.id ?? "N/A"}`)
+          }}
+          onError={(err) => {
+            console.error(err)
+            setStatus("PayPal error occurred. See console.")
+          }}
+        />
+      </PayPalScriptProvider>
+      {status && <p className="text-sm text-muted-foreground">{status}</p>}
+    </div>
   )
 }

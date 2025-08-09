@@ -1,16 +1,34 @@
-import { NextResponse } from "next/server"
-import { createOrder } from "../_helpers"
+import type { NextRequest } from "next/server"
+import { getAccessToken } from "../_helpers"
 
-export async function POST(req: Request) {
-  const { amount } = await req.json().catch(() => ({}))
-  const val = Number(amount)
-  if (!Number.isFinite(val) || val <= 0) {
-    return NextResponse.json({ ok: false, error: "Invalid amount" }, { status: 400 })
-  }
+export async function POST(req: NextRequest) {
   try {
-    const order = await createOrder(val.toFixed(2))
-    return NextResponse.json({ ok: true, id: order.id })
+    const { amount } = (await req.json()) as { amount: number }
+    const normalized = Math.max(1, Math.round((Number(amount) || 0) * 100) / 100) // min $1.00
+    const { token, base } = await getAccessToken()
+    const res = await fetch(`${base}/v2/checkout/orders`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        intent: "CAPTURE",
+        purchase_units: [
+          {
+            amount: { currency_code: "USD", value: normalized.toFixed(2) },
+            description: "Buy 1 ETH",
+          },
+        ],
+      }),
+    })
+    if (!res.ok) {
+      const t = await res.text()
+      throw new Error(`PayPal create order failed: ${res.status} ${t}`)
+    }
+    const data = await res.json()
+    return Response.json({ id: data.id })
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message ?? "Create order failed" }, { status: 500 })
+    return new Response(JSON.stringify({ error: e?.message ?? "PayPal error" }), { status: 500 })
   }
 }

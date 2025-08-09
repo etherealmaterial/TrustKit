@@ -1,43 +1,28 @@
-import { NextResponse } from "next/server"
 import Stripe from "stripe"
-import { fetchEthUsd, toCents } from "@/lib/prices"
+import type { NextRequest } from "next/server"
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY
+  if (!STRIPE_SECRET_KEY) {
+    return new Response(JSON.stringify({ error: "STRIPE_SECRET_KEY not configured" }), { status: 500 })
+  }
+  const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" as any })
+
   try {
-    const key = process.env.STRIPE_SECRET_KEY
-    if (!key) {
-      return NextResponse.json({ ok: false, error: "Missing STRIPE_SECRET_KEY" }, { status: 500 })
+    const { amount_cents, description } = (await req.json()) as { amount_cents: number; description?: string }
+    if (!Number.isFinite(amount_cents) || amount_cents < 50) {
+      return new Response(JSON.stringify({ error: "Invalid amount_cents" }), { status: 400 })
     }
-    const stripe = new Stripe(key, { apiVersion: "2024-06-20" })
 
-    // Always re-calc server-side to prevent tampering
-    const price = await fetchEthUsd()
-    const amount = toCents(price.usd) // 1 ETH in USD cents
-
-    // Create PaymentIntent for Payment Element, Link will appear if eligible
-    const intent = await stripe.paymentIntents.create({
-      amount,
+    const pi = await stripe.paymentIntents.create({
+      amount: Math.round(amount_cents),
       currency: "usd",
-      description: "Buy 1 ETH",
+      description: description ?? "Payment",
       automatic_payment_methods: { enabled: true },
-      metadata: {
-        product: "eth",
-        quantity: "1",
-        price_source: price.source,
-        as_of: price.asOf,
-      },
     })
 
-    return NextResponse.json({
-      ok: true,
-      clientSecret: intent.client_secret,
-      currency: intent.currency,
-      amount: intent.amount,
-    })
-  } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, error: err?.message ?? "Stripe error creating PaymentIntent" },
-      { status: 500 },
-    )
+    return Response.json({ clientSecret: pi.client_secret })
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: e?.message ?? "Stripe error" }), { status: 500 })
   }
 }
