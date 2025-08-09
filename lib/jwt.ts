@@ -1,29 +1,32 @@
 import { SignJWT, jwtVerify } from "jose"
-import { config } from "./config"
 
-const encoder = new TextEncoder()
-const secret = encoder.encode(config.jwtSecret)
+const COOKIE_NAME = "session"
 
-export type JwtPayload = {
+function getSecret() {
+  const s = process.env.JWT_SECRET
+  if (!s) throw new Error("JWT_SECRET not set")
+  return new TextEncoder().encode(s)
+}
+
+export interface SessionPayload {
   sub: string
   email: string
   role: "admin" | "user"
 }
 
-export async function signSession(payload: JwtPayload, maxAgeSeconds: number) {
-  const now = Math.floor(Date.now() / 1000)
-  return await new SignJWT(payload as any)
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .setIssuedAt(now)
-    .setExpirationTime(now + maxAgeSeconds)
+export async function signSession(payload: SessionPayload) {
+  const secret = getSecret()
+  return await new SignJWT(payload as unknown as Record<string, unknown>)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("7d")
     .sign(secret)
 }
 
-export async function verifySession(token: string): Promise<JwtPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, secret)
-    return payload as unknown as JwtPayload
-  } catch {
-    return null
-  }
+export async function verifySession(token: string) {
+  const secret = getSecret()
+  const { payload } = await jwtVerify(token, secret)
+  return payload as unknown as SessionPayload
 }
+
+export { COOKIE_NAME }

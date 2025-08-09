@@ -1,38 +1,33 @@
 import { NextResponse } from "next/server"
 import { users } from "@/lib/users"
 import { requireAdmin } from "@/lib/auth"
-import type { CreateUserInput } from "@/lib/users/types"
 
 export async function GET() {
-  await requireAdmin()
-  const store = users()
-  const all = await store.listUsers()
-  const sanitized = all.map((u) => ({
-    id: u.id,
-    email: u.email,
-    name: u.name,
-    role: u.role,
-    active: u.active,
-    createdAt: u.createdAt,
-  }))
-  return NextResponse.json({ users: sanitized })
+  try {
+    await requireAdmin()
+    const list = await users().listUsers()
+    return NextResponse.json({
+      ok: true,
+      users: list.map((u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, active: u.active })),
+    })
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message ?? "Unauthorized" }, { status: 401 })
+  }
 }
 
 export async function POST(req: Request) {
-  await requireAdmin()
-  const store = users()
-  const body = (await req.json()) as Partial<CreateUserInput>
-  if (!body.email || !body.password) {
-    return NextResponse.json({ error: "Email and password required" }, { status: 400 })
+  try {
+    await requireAdmin()
+    const body = await req.json()
+    const u = await users().createUser({
+      email: body.email,
+      password: body.password,
+      name: body.name,
+      role: body.role,
+      active: body.active,
+    })
+    return NextResponse.json({ ok: true, user: { id: u.id, email: u.email, role: u.role, active: u.active } })
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message ?? "Create failed" }, { status: 400 })
   }
-  const user = await store.createUser({
-    email: String(body.email),
-    name: String(body.name || ""),
-    password: String(body.password),
-    role: (body.role as any) || "user",
-    active: body.active ?? true,
-  })
-  return NextResponse.json({
-    user: { id: user.id, email: user.email, name: user.name, role: user.role, active: user.active },
-  })
 }

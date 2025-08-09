@@ -1,30 +1,32 @@
 import { NextResponse } from "next/server"
 import { users } from "@/lib/users"
-import type { CreateUserInput } from "@/lib/users/types"
-import { config, assertSecrets } from "@/lib/config"
-
-assertSecrets()
+import { createSession } from "@/lib/auth"
 
 export async function POST(req: Request) {
+  const body = (await req.json().catch(() => null)) as { email?: string; password?: string; name?: string } | null
+  if (!body?.email || !body?.password) {
+    return NextResponse.json({ ok: false, error: "Email and password required" }, { status: 400 })
+  }
+
   try {
-    if (!config.allowPublicSignup) {
-      return NextResponse.json({ error: "Public signup disabled" }, { status: 403 })
-    }
-    const body = (await req.json()) as Partial<CreateUserInput>
-    const email = String(body.email || "")
-      .toLowerCase()
-      .trim()
-    const password = String(body.password || "")
-    const name = String(body.name || "")
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
-    }
     const store = users()
     const count = await store.countUsers()
-    const role = count === 0 ? "admin" : body.role || "user"
-    const user = await store.createUser({ email, password, name, role })
-    return NextResponse.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } })
+    const allowEnv = process.env.ALLOW_PUBLIC_SIGNUP === "true"
+    const allow = allowEnv || count === 0
+    if (!allow) {
+      return NextResponse.json({ ok: false, error: "Signups are disabled" }, { status: 403 })
+    }
+    const role = count === 0 ? "admin" : "user"
+    const u = await store.createUser({
+      email: body.email,
+      password: body.password,
+      name: body.name ?? "",
+      role,
+      active: true,
+    })
+    await createSession(u)
+    return NextResponse.json({ ok: true, user: { id: u.id, email: u.email, role: u.role } })
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Signup failed" }, { status: 400 })
+    return NextResponse.json({ ok: false, error: e?.message ?? "Signup failed" }, { status: 500 })
   }
 }

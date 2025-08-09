@@ -1,25 +1,28 @@
 export type Role = "admin" | "user"
 
-export type User = {
+export interface User {
   id: string
   email: string
-  name?: string
+  name: string
   role: Role
-  passwordHash: string
   active: boolean
+  passwordHash: string
   createdAt: number
   updatedAt: number
 }
 
-export type CreateUserInput = {
+export interface CreateUserInput {
   email: string
-  name?: string
   password: string
+  name?: string
   role?: Role
   active?: boolean
 }
 
-export type UpdateUserInput = Partial<Pick<User, "name" | "role" | "active">> & {
+export interface UpdateUserInput {
+  name?: string
+  role?: Role
+  active?: boolean
   password?: string
 }
 

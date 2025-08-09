@@ -1,43 +1,37 @@
-import type { UsersAdapter, User, CreateUserInput, UpdateUserInput } from "./types"
-import crypto from "crypto"
 import bcrypt from "bcryptjs"
+import type { UsersAdapter, User, CreateUserInput, UpdateUserInput } from "./types"
 
-type DB = {
-  byId: Map<string, User>
-  byEmail: Map<string, string> // email -> id
-}
+const usersById = new Map<string, User>()
+const idByEmail = new Map<string, string>()
 
-function getDB(): DB {
-  const g = globalThis as any
-  if (!g.__MEM_DB__) {
-    g.__MEM_DB__ = { byId: new Map<string, User>(), byEmail: new Map<string, string>() }
-  }
-  return g.__MEM_DB__ as DB
+function makeId() {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const c = (globalThis as any).crypto
+    if (c?.randomUUID) return c.randomUUID()
+  } catch {}
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
 export function createMemoryAdapter(): UsersAdapter {
-  const db = getDB()
-
   return {
     async countUsers() {
-      return db.byId.size
+      return usersById.size
     },
     async listUsers() {
-      return Array.from(db.byId.values()).sort((a, b) => a.createdAt - b.createdAt)
+      return Array.from(usersById.values()).sort((a, b) => a.createdAt - b.createdAt)
     },
     async getUserById(id: string) {
-      return db.byId.get(id) || null
+      return usersById.get(id) ?? null
     },
     async getUserByEmail(email: string) {
-      const id = db.byEmail.get(email.toLowerCase())
-      return id ? db.byId.get(id) || null : null
+      const id = idByEmail.get(email.toLowerCase().trim())
+      return id ? (usersById.get(id) ?? null) : null
     },
     async createUser(input: CreateUserInput) {
       const email = input.email.toLowerCase().trim()
-      if (db.byEmail.has(email)) {
-        throw new Error("Email already exists")
-      }
-      const id = crypto.randomUUID()
+      if (idByEmail.has(email)) throw new Error("Email already exists")
+      const id = makeId()
       const now = Date.now()
       const passwordHash = await bcrypt.hash(input.password, 10)
       const user: User = {
@@ -50,29 +44,29 @@ export function createMemoryAdapter(): UsersAdapter {
         createdAt: now,
         updatedAt: now,
       }
-      db.byId.set(id, user)
-      db.byEmail.set(email, id)
+      usersById.set(id, user)
+      idByEmail.set(email, id)
       return user
     },
     async updateUser(id: string, input: UpdateUserInput) {
-      const u = db.byId.get(id)
+      const u = usersById.get(id)
       if (!u) throw new Error("User not found")
       const changes: Partial<User> = {}
       if (typeof input.name === "string") changes.name = input.name
       if (input.role) changes.role = input.role
       if (typeof input.active === "boolean") changes.active = input.active
       if (input.password) {
-        changes.passwordHash = await (await import("bcryptjs")).default.hash(input.password, 10)
+        changes.passwordHash = await bcrypt.hash(input.password, 10)
       }
-      const next = { ...u, ...changes, updatedAt: Date.now() }
-      db.byId.set(id, next)
-      return next
+      const merged: User = { ...u, ...changes, updatedAt: Date.now() }
+      usersById.set(id, merged)
+      return merged
     },
     async deleteUser(id: string) {
-      const u = db.byId.get(id)
+      const u = usersById.get(id)
       if (!u) return false
-      db.byId.delete(id)
-      db.byEmail.delete(u.email.toLowerCase())
+      usersById.delete(id)
+      idByEmail.delete(u.email)
       return true
     },
   }

@@ -1,39 +1,58 @@
-import { redirect } from "next/navigation"
-import { getCurrentUser } from "@/lib/auth"
-import UserTable from "@/components/admin/user-table"
+"use client"
+
+import { useEffect, useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
-async function SignOutButton() {
-  async function logout() {
-    "use server"
-    await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ""}/api/auth/logout`, {
-      method: "POST",
-      cache: "no-store",
-    })
-  }
-  // In Next.js, server actions are supported; this simple button uses a normal POST in client instead:
-  return null
-}
+type User = { id: string; email: string; name: string; role: string; active: boolean }
 
-export default async function AdminPage() {
-  const user = await getCurrentUser()
-  if (!user) redirect("/login?redirect=/admin")
-  if (user.role !== "admin") redirect("/")
+export default function AdminPage() {
+  const [users, setUsers] = useState<User[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  async function load() {
+    setError(null)
+    const res = await fetch("/api/admin/users")
+    const json = await res.json()
+    if (!json.ok) {
+      setError(json.error || "Failed to load users")
+      return
+    }
+    setUsers(json.users)
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
 
   return (
-    <main className="container mx-auto max-w-5xl px-6 py-10 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Admin Portal</h1>
-          <p className="text-muted-foreground text-sm">Signed in as {user.email}</p>
-        </div>
-        <form action="/api/auth/logout" method="POST">
-          <Button type="submit" variant="outline">
-            Sign out
-          </Button>
-        </form>
-      </div>
-      <UserTable />
+    <main className="max-w-4xl mx-auto p-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>{"Admin • Users"}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error && <div className="text-red-600">{error}</div>}
+          <div className="flex justify-end">
+            <Button onClick={load} variant="outline">
+              {"Refresh"}
+            </Button>
+          </div>
+          <div className="divide-y">
+            {users.map((u) => (
+              <div key={u.id} className="py-3 flex items-center justify-between">
+                <div>
+                  <div className="font-medium">{u.email}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {u.role} • {u.active ? "active" : "disabled"}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {users.length === 0 && <div className="py-8 text-center text-muted-foreground">{"No users yet."}</div>}
+          </div>
+        </CardContent>
+      </Card>
     </main>
   )
 }

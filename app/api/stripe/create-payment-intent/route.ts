@@ -1,39 +1,43 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
-import { fetchEthUsdPrice, toUsdCents } from "@/lib/prices"
+import { fetchEthUsd, toCents } from "@/lib/prices"
 
 export async function POST() {
   try {
-    const secret = process.env.STRIPE_SECRET_KEY
-    if (!secret) {
-      return NextResponse.json({ error: "Missing STRIPE_SECRET_KEY" }, { status: 500 })
+    const key = process.env.STRIPE_SECRET_KEY
+    if (!key) {
+      return NextResponse.json({ ok: false, error: "Missing STRIPE_SECRET_KEY" }, { status: 500 })
     }
+    const stripe = new Stripe(key, { apiVersion: "2024-06-20" })
 
-    const stripe = new Stripe(secret, { apiVersion: "2024-06-20" })
+    // Always re-calc server-side to prevent tampering
+    const price = await fetchEthUsd()
+    const amount = toCents(price.usd) // 1 ETH in USD cents
 
-    // Price 1 ETH in USD cents
-    const usd = await fetchEthUsdPrice()
-    const amount = toUsdCents(usd)
-
+    // Create PaymentIntent for Payment Element, Link will appear if eligible
     const intent = await stripe.paymentIntents.create({
       amount,
       currency: "usd",
-      description: "Buy 1 ETH (fiat payment only)",
-      // Enable Link and cards
-      payment_method_types: ["card", "link"],
-      automatic_payment_methods: {
-        enabled: true,
-        allow_redirects: "never",
-      },
+      description: "Buy 1 ETH",
+      automatic_payment_methods: { enabled: true },
       metadata: {
-        asset: "ETH",
+        product: "eth",
         quantity: "1",
-        priced_from: "coingecko",
+        price_source: price.source,
+        as_of: price.asOf,
       },
     })
 
-    return NextResponse.json({ clientSecret: intent.client_secret })
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Stripe initialization failed" }, { status: 500 })
+    return NextResponse.json({
+      ok: true,
+      clientSecret: intent.client_secret,
+      currency: intent.currency,
+      amount: intent.amount,
+    })
+  } catch (err: any) {
+    return NextResponse.json(
+      { ok: false, error: err?.message ?? "Stripe error creating PaymentIntent" },
+      { status: 500 },
+    )
   }
 }

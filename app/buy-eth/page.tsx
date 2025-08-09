@@ -1,60 +1,58 @@
+import dynamic from "next/dynamic"
 import { Suspense } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { fetchEthUsd, formatUSD } from "@/lib/prices"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { fetchEthUsdPrice } from "@/lib/prices"
-import StripeSection from "@/components/stripe-section"
-import PayPalSection from "@/components/paypal-section"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Separator } from "@/components/ui/separator"
 
-export const dynamic = "force-dynamic"
+const StripeSection = dynamic(() => import("@/components/stripe-section"), { ssr: false })
+const PayPalSection = dynamic(() => import("@/components/paypal-section"), { ssr: false })
 
 export default async function BuyEthPage() {
-  const price = await fetchEthUsdPrice()
+  const price = await fetchEthUsd()
 
   return (
     <main className="container mx-auto max-w-3xl px-6 py-10">
-      <div className="space-y-2 mb-8">
-        <h1 className="text-3xl font-bold">Buy 1 ETH</h1>
-        <p className="text-muted-foreground">
-          Live price fetched server-side. Choose Link/Card (Stripe) or PayPal to pay the USD equivalent.
-        </p>
-      </div>
-
-      <Card className="mb-6">
+      <Card>
         <CardHeader>
-          <CardTitle>Current Price</CardTitle>
-          <CardDescription>ETH price in USD (from CoinGecko)</CardDescription>
+          <CardTitle className="text-2xl">Buy 1 ETH</CardTitle>
+          <CardDescription>
+            Price as of {price.asOf} via {price.source}
+          </CardDescription>
         </CardHeader>
-        <CardContent className="text-2xl font-semibold">
-          {"$"}
-          {price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          {" USD"}
+        <CardContent className="space-y-4">
+          <div className="text-lg">
+            <span className="text-muted-foreground">Amount:</span> <span className="font-semibold">1.0000 ETH</span>
+          </div>
+          <div className="text-lg">
+            <span className="text-muted-foreground">Total:</span>{" "}
+            <span className="font-semibold">{formatUSD(price.usd)}</span>
+          </div>
+
+          <Separator />
+
+          <Tabs defaultValue="stripe">
+            <TabsList className="grid grid-cols-2">
+              <TabsTrigger value="stripe">Link / Card (Stripe)</TabsTrigger>
+              <TabsTrigger value="paypal">PayPal</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="stripe" className="mt-4">
+              <Suspense fallback={<div className="text-sm text-muted-foreground">Loading Stripe checkout…</div>}>
+                {/* Client-only Stripe checkout */}
+                <StripeSection />
+              </Suspense>
+            </TabsContent>
+
+            <TabsContent value="paypal" className="mt-4">
+              <Suspense fallback={<div className="text-sm text-muted-foreground">Loading PayPal…</div>}>
+                {/* Client-only PayPal checkout */}
+                <PayPalSection />
+              </Suspense>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
-
-      <Tabs defaultValue="stripe" className="w-full">
-        <TabsList className="grid grid-cols-2 w-full">
-          <TabsTrigger value="stripe">Link / Card (Stripe)</TabsTrigger>
-          <TabsTrigger value="paypal">PayPal</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="stripe" className="mt-4">
-          <Suspense fallback={<Skeleton className="h-36 w-full" />}>
-            <StripeSection />
-          </Suspense>
-        </TabsContent>
-
-        <TabsContent value="paypal" className="mt-4">
-          <Suspense fallback={<Skeleton className="h-36 w-full" />}>
-            <PayPalSection />
-          </Suspense>
-        </TabsContent>
-      </Tabs>
-
-      <p className="text-xs text-muted-foreground mt-6">
-        This example processes a fiat payment for the USD value of 1 ETH. Delivery of ETH to a wallet is not included
-        and requires additional on-ramp/exchange integration and compliance checks.
-      </p>
     </main>
   )
 }

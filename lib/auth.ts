@@ -1,30 +1,35 @@
-import { cookies, headers } from "next/headers"
-import { config } from "./config"
-import { verifySession } from "./jwt"
-import { users } from "./users"
+import { cookies } from "next/headers"
+import { COOKIE_NAME, signSession, verifySession, type SessionPayload } from "./jwt"
 import type { User } from "./users/types"
 
-export type SessionUser = Pick<User, "id" | "email" | "name" | "role" | "active">
-
-export async function getCurrentUser(): Promise<SessionUser | null> {
-  const store = users()
-  const token = cookies().get(config.sessionCookieName)?.value
-  if (!token) return null
-  const payload = await verifySession(token)
-  if (!payload) return null
-  const u = await store.getUserById(payload.sub)
-  if (!u || !u.active) return null
-  return { id: u.id, email: u.email, name: u.name, role: u.role, active: u.active }
+export async function createSession(user: User) {
+  const token = await signSession({ sub: user.id, email: user.email, role: user.role })
+  const c = cookies()
+  c.set(COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+  })
 }
 
-export async function requireAdmin(): Promise<SessionUser> {
-  const u = await getCurrentUser()
-  if (!u || u.role !== "admin") {
-    const h = headers()
-    const path = h.get("x-pathname") || "/"
-    const err = new Error(`Unauthorized to access ${path}`)
-    ;(err as any).status = 401
-    throw err
+export async function clearSession() {
+  cookies().set(COOKIE_NAME, "", { path: "/", maxAge: 0 })
+}
+
+export async function getSessionUser(): Promise<SessionPayload | null> {
+  const token = cookies().get(COOKIE_NAME)?.value
+  if (!token) return null
+  try {
+    return await verifySession(token)
+  } catch {
+    return null
   }
-  return u
+}
+
+export async function requireAdmin(): Promise<SessionPayload> {
+  const sess = await getSessionUser()
+  if (!sess || sess.role !== "admin") throw new Error("Unauthorized")
+  return sess
 }

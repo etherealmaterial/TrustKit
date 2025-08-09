@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server"
-import { fetchEthUsdPrice } from "@/lib/prices"
-
-export const dynamic = "force-dynamic"
+import { fetchEthUsd, toCents } from "@/lib/prices"
 
 export async function GET() {
   try {
-    const price = await fetchEthUsdPrice()
-    return NextResponse.json({ symbol: "ETH", currency: "USD", price })
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Price error" }, { status: 500 })
+    const price = await fetchEthUsd()
+    return NextResponse.json({
+      ok: true,
+      priceUsd: price.usd,
+      amountUsdCents: toCents(price.usd),
+      source: price.source,
+      asOf: price.asOf,
+    })
+  } catch (err: any) {
+    return NextResponse.json({ ok: false, error: err?.message ?? "Failed to fetch ETH price" }, { status: 500 })
   }
 }
